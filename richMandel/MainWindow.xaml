@@ -1,0 +1,50 @@
+﻿<Window x:Class="richMandel.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="richMandel" Height="700" Width="700"
+        Background="#222">
+    <Grid Name="w_myGrid" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="70"></RowDefinition>
+            <RowDefinition></RowDefinition>
+        </Grid.RowDefinitions>
+        <DockPanel Name="w_controlPanel" Margin="5" Background="#333" LastChildFill="True">
+            <Button Name="w_goButton" DockPanel.Dock="Right" Margin="5px" MinWidth="50" Click="onGoButtonClick">GO</Button>
+            <UniformGrid Rows="2" Margin="5 0 5 0" Width="180">
+                <Label Foreground="WhiteSmoke" HorizontalAlignment="Center">X</Label>
+                <Label Foreground="WhiteSmoke" HorizontalAlignment="Center">Y</Label>
+                <Label Foreground="WhiteSmoke" HorizontalAlignment="Center">Width</Label>
+                <Label Foreground="WhiteSmoke" HorizontalAlignment="Center">Depth</Label>
+                <TextBox Name="w_viewXPosition" Margin="0 0 5 0" Height="22"></TextBox>
+                <TextBox Name="w_viewYPosition" Margin="0 0 5 0" Height="22"></TextBox>
+                <TextBox Name="w_viewWidth" Margin="0 0 5 0" Height="22"></TextBox>
+                <TextBox Name="w_renderDepth" Height="22">2000</TextBox>
+            </UniformGrid>
+            <Grid Width="130">
+                <Grid.RowDefinitions>
+                    <RowDefinition></RowDefinition>
+                    <RowDefinition></RowDefinition>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition></ColumnDefinition>
+                    <ColumnDefinition Width="50"></ColumnDefinition>
+                </Grid.ColumnDefinitions>
+                <Label Foreground="WhiteSmoke">Supersample</Label>
+                <ComboBox Name="w_superSample" Grid.Column="1" Height="22" SelectedIndex="0">
+                    <ComboBoxItem>1</ComboBoxItem>
+                    <ComboBoxItem>2</ComboBoxItem>
+                    <ComboBoxItem>4</ComboBoxItem>
+                    <ComboBoxItem>8</ComboBoxItem>
+                    <ComboBoxItem>16</ComboBoxItem>
+                </ComboBox>
+                <Label Grid.Row="1" Foreground="WhiteSmoke">Threads</Label>
+                <TextBox Name="w_threads" Grid.Column="1" Grid.Row="1" Height="22">12</TextBox>
+            </Grid>
+            <UniformGrid DockPanel.Dock="Right" Rows="2">
+                <Button Name="w_btnSetWindowAsSize" Margin="5px" Height="22">Render Window Size</Button>
+                <Button Name="w_renderToImage" Margin="5 0 5 5" Height="22">Render to Image</Button>
+            </UniformGrid>
+            <Label Foreground="WhiteSmoke" Background="#555" Margin="5">//TODO Gradient Control</Label>
+        </DockPanel>
+    </Grid>
+</Window>
