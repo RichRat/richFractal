@@ -18,11 +18,11 @@ namespace richMandel
     class MandelRenderer
     {
         //TODO make all of those configurable
-        private static int THREADCOUNT = 1;
-        private static int MAXDEPTH = 1000;
-        private static double colorPeriod = 42;
-        private static Color scol = Colors.Red;
-        private static Color ecol = Colors.Yellow;
+        private static int THREADCOUNT = 12;
+        private static int MAXDEPTH = 1500;
+        private static double colorPeriod = 25;
+        private static Color scol = Colors.Orange;
+        private static Color ecol = Colors.RoyalBlue;
 
         event Action<long> Finished;
         
@@ -124,8 +124,8 @@ namespace richMandel
                         y = getNextLine();
                     }
                 });
-                t.Start();
                 tlist.Add(t);
+                t.Start();
             }
 
             foreach (Thread t in tlist)

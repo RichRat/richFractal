@@ -15,9 +15,12 @@ namespace richMandel
 {
     class MandelCanvas : Canvas
     {
+        private static int MIN_SELECT_SIZE = 5;
+
         public event Action<double, double, double, double> ViewChanged;
 
-        Rectangle m_selectRect = new Rectangle();
+        Rectangle m_dragRect = new Rectangle();
+        Line m_dragLine = new Line();
         Image m_image = new Image();
         WriteableBitmap m_bitmap;
         int m_supersample = 1;
@@ -25,28 +28,53 @@ namespace richMandel
         int m_pxHeight;
 
         //TODO set function
-        Rect m_view = new Rect(1.5, 0.5, 1.5, 1.0);
+        Rect m_view = new Rect(2, 1, 3, 2);
         MandelRenderer m_render;
         
+        public enum DragModes
+        {
+            Selection,
+            Move
+        }
+        DragModes m_dragMode = DragModes.Selection;
+        public DragModes DragMode { get; set; }
+
+        //mouse info
+        Point m_dragFrom;
+        Point m_mousePos;
+        bool m_dragging = false;
 
         public MandelCanvas()
         {
             this.MouseMove += onMouseMove;
             m_render = new MandelRenderer(new MandelDefinition());
-            m_image.MouseDown += onImageMouseDown;
-            m_image.MouseUp += onImageMouseUp;
-            this.Children.Add(m_image);
+            this.MouseDown += onMouseDown;
+            this.MouseUp += onMouseUp;
+            m_image.MouseWheel += onImageMouseWheel;
+            
 
-            m_selectRect.Fill = new SolidColorBrush(Colors.Transparent);
-            m_selectRect.Stroke = new SolidColorBrush(Colors.White);
-            m_selectRect.StrokeThickness = 2;
-            m_selectRect.Visibility = System.Windows.Visibility.Collapsed;
+            m_dragRect.Fill = new SolidColorBrush(Colors.Transparent);
+            m_dragRect.Stroke = new SolidColorBrush(Colors.White);
+            m_dragRect.StrokeThickness = 2;
+            m_dragRect.Visibility = Visibility.Collapsed;
             //todo
-            //m_selectRect.StrokeDashArray = 
+            var dashes = new DoubleCollection();
+            dashes.Add(6);
+            dashes.Add(2);
+            m_dragRect.StrokeDashArray = dashes;
+
+            m_dragLine.Stroke = new SolidColorBrush(Colors.White);
+            m_dragLine.StrokeThickness = 12;
+            m_dragLine.StrokeStartLineCap = PenLineCap.Round;
+            m_dragLine.StrokeEndLineCap = PenLineCap.Triangle;
+            m_dragLine.Visibility = Visibility.Collapsed;
 
             this.Background = new SolidColorBrush(Colors.Black);
-        }
 
+            this.Children.Add(m_image);
+            this.Children.Add(m_dragRect);
+            //this.Children.Add(m_dragLine);
+        }
 
         public void render()
         {
@@ -62,23 +90,10 @@ namespace richMandel
             m_image.Source = m_bitmap;
         }
 
-        Rect ViewSize 
-        {
-            set 
-            {
-                if (!value.Equals(m_view))
-                {
-                    m_view = value;
-                    initBitmap();
-                }
-            }
-            get { return m_view; }
-        }
-
         //multiplies the size of the underlying image
-        int SuperSample
+        public int SuperSample
         {
-            get { return m_supersample;  }
+            get { return m_supersample; }
             set
             {
                 if (value >= 1 && value < 5)
@@ -87,10 +102,10 @@ namespace richMandel
         }
 
         //sets fractal view and starts rendering
-        Rect View
+        public Rect View
         {
-            get { return m_view; }
-            set 
+            get { return m_view;  }
+            set
             {
                 if (!m_view.Equals(value))
                 {
@@ -100,27 +115,41 @@ namespace richMandel
             }
         }
 
-        static double minRectSize;
-        Point m_mousePosOld;
-        Point m_mousePos;
-        private void onImageMouseUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private void onMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            Point mp = e.GetPosition(m_image);
-            
-            zoomToPoint(imageToFractalPoint(mp), e.ChangedButton == MouseButton.Left ? 2 : 0.5);
+            m_dragging = true;
+            m_dragFrom = e.GetPosition(m_image);
+            initDragIndicator();
         }
+
 
         void onMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         {
-            Point curMPos = e.GetPosition(m_image);
-            if (Math.Abs((m_mousePosOld - curMPos).Length) > minRectSize)
-                ;
+            if (m_dragging)
+            {
+                m_mousePos = e.GetPosition(m_image);
+                drawDragIndicator();
+            }
         }
 
-        private void onImageMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private void onMouseUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            m_mousePosOld = e.GetPosition(m_image);
+            if (m_dragging)
+            {
+                m_dragging = false;
+                m_mousePos = e.GetPosition(m_image);
+                applyDragToView();
+                render();
+            }
         }
+
+        void onImageMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            Point mp = e.GetPosition(m_image);
+            bool up = e.Delta > 0;
+            zoomToPoint(imageToFractalPoint(mp), up ? 2 : 0.5);
+        }
+
 
         private Point imageToFractalPoint(Point p)
         {
@@ -129,6 +158,12 @@ namespace richMandel
             return new Point(x, y);
         }
 
+        private Point imageToFractalPoint(double x, double y)
+        {
+            return imageToFractalPoint(new Point(x, y));
+        }
+
+        //TODO point should not be in the center but where it was before
         private void zoomToPoint(Point fp, double factor)
         {
             m_view.Width /= factor;
@@ -136,6 +171,93 @@ namespace richMandel
             m_view.X = fp.X + m_view.Width / 2;
             m_view.Y = fp.Y + m_view.Height / 2;
             render();
+        }
+
+        private void initDragIndicator()
+        {
+            if (m_dragMode == DragModes.Move)
+            {
+                m_dragLine.Visibility = Visibility.Visible;
+                m_dragLine.X1 = m_dragFrom.X;
+                m_dragLine.Y1 = m_dragFrom.Y;
+            }
+            else if (m_dragMode == DragModes.Selection)
+            {
+                m_dragRect.Visibility = Visibility.Visible;
+                m_mousePos = m_dragFrom;
+            }
+
+            drawDragIndicator();
+        }
+
+        private void drawDragIndicator()
+        {
+            if (m_dragMode == DragModes.Move)
+            {
+                m_dragLine.X2 = m_mousePos.X;
+                m_dragLine.Y2 = m_mousePos.Y;
+            }
+            else if (m_dragMode == DragModes.Selection)
+            {
+                Rect selection = calcSelectionRect();
+                Canvas.SetLeft(m_dragRect, selection.X);
+                Canvas.SetTop(m_dragRect, selection.Y);
+                m_dragRect.Width = selection.Width;
+                m_dragRect.Height = selection.Height;
+            }
+        }
+
+        private void applyDragToView()
+        {
+            Point from = imageToFractalPoint(m_dragFrom);
+            Point to = imageToFractalPoint(m_mousePos);
+            Vector delta = to - from;
+            if (m_dragMode == DragModes.Move)
+            {
+                
+                m_view.X -= delta.X;
+                m_view.Y -= delta.Y;
+            }
+            else if (m_dragMode == DragModes.Selection)
+            {
+                Vector screenDelta = m_mousePos - m_dragFrom;
+                if (Math.Abs(screenDelta.X) > MIN_SELECT_SIZE && Math.Abs(screenDelta.Y) > MIN_SELECT_SIZE)
+                {
+                    Rect selection = calcSelectionRect();
+                    
+                    Point topleft = imageToFractalPoint(selection.TopLeft);
+                    Vector size = imageToFractalPoint(selection.BottomRight) - topleft;
+                    m_view.X = topleft.X;
+                    m_view.Y = topleft.Y;
+
+                    m_view.Width = Math.Abs(size.X);
+                    m_view.Height = Math.Abs(size.Y);
+                }
+            }
+
+            m_dragLine.Visibility = Visibility.Collapsed;
+            m_dragRect.Visibility = Visibility.Collapsed;
+        }
+
+        private Rect calcSelectionRect()
+        {
+            double sWidth = Math.Abs(m_dragFrom.X - m_mousePos.X);
+            double sHeigth = Math.Abs(m_dragFrom.Y - m_mousePos.Y);
+            double ratio = m_pxWidth / m_pxHeight;
+            double height = sHeigth;
+            double width = sWidth;
+
+            if (sWidth > sHeigth)
+                height = sWidth / ratio;
+            else
+                width = sHeigth * ratio;
+
+
+            return new Rect(
+                Math.Min(m_dragFrom.X, m_mousePos.X),
+                Math.Min(m_dragFrom.Y, m_mousePos.Y),
+                sWidth, 
+                height);
         }
     }
 }
