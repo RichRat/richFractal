@@ -18,9 +18,9 @@ namespace richMandel
     class MandelRenderer
     {
         //TODO make all of those configurable
-        private static int THREADCOUNT = 12;
-        private static int MAXDEPTH = 1500;
-        private static double colorPeriod = 25;
+        
+        
+        private static int colorPeriod = 70;
         private static Color scol = Colors.Orange;
         private static Color ecol = Colors.RoyalBlue;
 
@@ -28,9 +28,14 @@ namespace richMandel
         
         //store values for animated calcualtion
         //MandelPoint[][] m_values = null;
+        //int m_curDepth;
+        //int m_drawInterval = 50;
 
         //dont waste time calculating colors over and over
         List<Color> m_colorLookup = new List<Color>();
+
+        private int m_maxdepth = 1500;
+        private int m_threadCount = 12;
 
         int m_pxHeight;
         int m_pxWidth;
@@ -56,12 +61,32 @@ namespace richMandel
             initColorLookup();
         }
 
+        public int Depth
+        {
+            get { return m_maxdepth; }
+            set 
+            { 
+                if (value >= 0) 
+                    m_maxdepth = value; 
+            }
+        }
+
+        public int ThreadCount
+        {
+            get { return m_threadCount; }
+            set 
+            { 
+                if (value >= 0)
+                    m_threadCount = value; 
+            }
+        }
+
         private void initColorLookup()
         {
-            for (int i = 0; i < MAXDEPTH; i++)
+            for (int i = 0; i < colorPeriod; i++)
             {
-                double s = Math.Sin(i / colorPeriod);
-                s *= s;
+                double s = Math.Sin((i / (double)colorPeriod) * Math.PI);
+                //s *= s;
                 double e = 1 - s;
 
                 var c = new Color();
@@ -93,15 +118,19 @@ namespace richMandel
                 calcPoints();
                 if (rendering)
                 {
-                    m_bitmap.Dispatcher.Invoke(() =>
+                    try
                     {
-                        //move changes to frontbuffer
-                        m_bitmap.Lock();
-                        m_bitmap.AddDirtyRect(new Int32Rect(0, 0, m_pxWidth, m_pxHeight));
-                        m_bitmap.Unlock();
-                        if (Finished != null)
-                            Finished.Invoke(-1);
-                    });
+                        m_bitmap.Dispatcher.Invoke(() =>
+                        {
+                            //move changes to frontbuffer
+                            m_bitmap.Lock();
+                            m_bitmap.AddDirtyRect(new Int32Rect(0, 0, m_pxWidth, m_pxHeight));
+                            m_bitmap.Unlock();
+                            if (Finished != null)
+                                Finished.Invoke(-1);
+                        });
+                    }
+                    catch (Exception e) { return; }
                 }
                 rendering = false;
             }).Start();
@@ -112,7 +141,7 @@ namespace richMandel
             //todo encapsulate in thread and use dispatcher to call back
             List<Thread> tlist = new List<Thread>();
             m_currentRow = 0;
-            for (int i = 0; i < THREADCOUNT; i++)
+            for (int i = 0; i < m_threadCount; i++)
             {
                 Thread t = new Thread(() =>
                 {
@@ -147,13 +176,13 @@ namespace richMandel
             
             //MandelPoint mp = m_values[x][y];
             var mp = new MandelPoint(m_topLeft, m_size, x / (double)m_pxWidth, y / (double)m_pxHeight);
-            for (int i = 0; i < MAXDEPTH; i++)
+            for (int i = 0; i < m_maxdepth; i++)
             {
                 m_fractDef.applyFunction(mp);
 
                 if (!m_fractDef.isInSet(mp))
                 {
-                    setPixel(x, y, m_colorLookup[i]);
+                    setPixel(x, y, m_colorLookup[i % colorPeriod]);
                     return;
                 }
             }
@@ -163,8 +192,8 @@ namespace richMandel
 
         private void setPixel(int x, int y, Color c)
         {
-            lock (m_semaph2)
-            {
+            //lock (m_semaph2)
+            //{
                 unsafe
                 { //fuck yeah pointers
                     byte* pPixels = (byte*)m_pBackbuffer;
@@ -174,7 +203,7 @@ namespace richMandel
                     *pPixels++ = c.G;
                     *pPixels = c.R;
                 }
-            }
+            //}
         }
     }
 }

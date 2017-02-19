@@ -24,8 +24,6 @@ namespace richMandel
         Image m_image = new Image();
         WriteableBitmap m_bitmap;
         int m_supersample = 1;
-        int m_pxWidth;
-        int m_pxHeight;
 
         //TODO set function
         Rect m_view = new Rect(2, 1, 3, 2);
@@ -59,12 +57,12 @@ namespace richMandel
             m_dragRect.Visibility = Visibility.Collapsed;
             //todo
             var dashes = new DoubleCollection();
-            dashes.Add(6);
+            dashes.Add(5);
             dashes.Add(2);
             m_dragRect.StrokeDashArray = dashes;
 
             m_dragLine.Stroke = new SolidColorBrush(Colors.White);
-            m_dragLine.StrokeThickness = 12;
+            m_dragLine.StrokeThickness = 7;
             m_dragLine.StrokeStartLineCap = PenLineCap.Round;
             m_dragLine.StrokeEndLineCap = PenLineCap.Triangle;
             m_dragLine.Visibility = Visibility.Collapsed;
@@ -73,7 +71,7 @@ namespace richMandel
 
             this.Children.Add(m_image);
             this.Children.Add(m_dragRect);
-            //this.Children.Add(m_dragLine);
+            this.Children.Add(m_dragLine);
         }
 
         public void render()
@@ -84,9 +82,9 @@ namespace richMandel
 
         private void initBitmap()
         {
-            m_pxWidth = (int)this.ActualWidth * m_supersample;
-            m_pxHeight = (int)this.ActualHeight * m_supersample;
-            m_bitmap = new WriteableBitmap(m_pxWidth, m_pxHeight, 96 * SuperSample, 96 * m_supersample, PixelFormats.Bgr24, null);  
+            int pxWidth = (int)this.ActualWidth * m_supersample;
+            int pxHeight = (int)this.ActualHeight * m_supersample;
+            m_bitmap = new WriteableBitmap(pxWidth, pxHeight, 96 * SuperSample, 96 * m_supersample, PixelFormats.Bgr24, null);  
             m_image.Source = m_bitmap;
         }
 
@@ -147,7 +145,7 @@ namespace richMandel
         {
             Point mp = e.GetPosition(m_image);
             bool up = e.Delta > 0;
-            zoomToPoint(imageToFractalPoint(mp), up ? 2 : 0.5);
+            zoomToPoint(mp , up ? 2 : 0.5);
         }
 
 
@@ -158,18 +156,31 @@ namespace richMandel
             return new Point(x, y);
         }
 
+        private Size imageToFractaqlSize(Size s)
+        {
+            Console.WriteLine(s.Width + " " + s.Width);
+            s.Width = m_view.Width / m_image.ActualWidth * s.Width;
+            s.Height = m_view.Height / m_image.ActualHeight * s.Height;
+            Console.WriteLine(s.Width + " " + s.Width);
+            return s;
+        }
+
         private Point imageToFractalPoint(double x, double y)
         {
             return imageToFractalPoint(new Point(x, y));
         }
 
-        //TODO point should not be in the center but where it was before
-        private void zoomToPoint(Point fp, double factor)
+        private void zoomToPoint(Point mp, double factor)
         {
+            Point fp = imageToFractalPoint(mp);
+            double xmpos = m_image.ActualWidth / mp.X;
+            double ympos = m_image.ActualHeight / mp.Y;
+
+
             m_view.Width /= factor;
             m_view.Height /= factor;
-            m_view.X = fp.X + m_view.Width / 2;
-            m_view.Y = fp.Y + m_view.Height / 2;
+            m_view.X = fp.X + m_view.Width / xmpos;
+            m_view.Y = fp.Y + m_view.Height / ympos;
             render();
         }
 
@@ -224,14 +235,9 @@ namespace richMandel
                 if (Math.Abs(screenDelta.X) > MIN_SELECT_SIZE && Math.Abs(screenDelta.Y) > MIN_SELECT_SIZE)
                 {
                     Rect selection = calcSelectionRect();
-                    
-                    Point topleft = imageToFractalPoint(selection.TopLeft);
-                    Vector size = imageToFractalPoint(selection.BottomRight) - topleft;
-                    m_view.X = topleft.X;
-                    m_view.Y = topleft.Y;
-
-                    m_view.Width = Math.Abs(size.X);
-                    m_view.Height = Math.Abs(size.Y);
+                    Console.WriteLine(selection.ToString());
+                    m_view.Location = imageToFractalPoint(selection.Location); 
+                    m_view.Size = imageToFractaqlSize(selection.Size);
                 }
             }
 
@@ -240,24 +246,26 @@ namespace richMandel
         }
 
         private Rect calcSelectionRect()
+        {    
+            double x1 = Math.Min(m_dragFrom.X, m_mousePos.X);
+            double y1 = Math.Min(m_dragFrom.Y, m_mousePos.Y);
+            double x2 = Math.Max(m_dragFrom.X, m_mousePos.X);
+            double y2 = Math.Max(m_dragFrom.Y, m_mousePos.Y);
+
+            double width = Math.Abs(x1 - x2);
+            double height = Math.Abs(y1 - y2);
+
+            double ratio = m_image.ActualWidth / m_image.ActualHeight;
+            height = width / ratio;
+
+
+
+            return new Rect(x1, y1, width, height);
+        }
+
+        public MandelRenderer Renderer 
         {
-            double sWidth = Math.Abs(m_dragFrom.X - m_mousePos.X);
-            double sHeigth = Math.Abs(m_dragFrom.Y - m_mousePos.Y);
-            double ratio = m_pxWidth / m_pxHeight;
-            double height = sHeigth;
-            double width = sWidth;
-
-            if (sWidth > sHeigth)
-                height = sWidth / ratio;
-            else
-                width = sHeigth * ratio;
-
-
-            return new Rect(
-                Math.Min(m_dragFrom.X, m_mousePos.X),
-                Math.Min(m_dragFrom.Y, m_mousePos.Y),
-                sWidth, 
-                height);
+            get { return m_render; }
         }
     }
 }
