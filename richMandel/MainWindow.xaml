@@ -15,9 +15,9 @@
                 <Label Foreground="WhiteSmoke" HorizontalAlignment="Center">Y</Label>
                 <Label Foreground="WhiteSmoke" HorizontalAlignment="Center">Width</Label>
                 <Label Foreground="WhiteSmoke" HorizontalAlignment="Center">Depth</Label>
-                <TextBox Name="w_viewXPosition" Margin="0 0 5 0" Height="22"></TextBox>
-                <TextBox Name="w_viewYPosition" Margin="0 0 5 0" Height="22"></TextBox>
-                <TextBox Name="w_viewWidth" Margin="0 0 5 0" Height="22"></TextBox>
+                <TextBox Name="w_viewXPosition" Margin="0 0 5 0" Height="22" TextChanged="onXPositionTxtChanged"></TextBox>
+                <TextBox Name="w_viewYPosition" Margin="0 0 5 0" Height="22" TextChanged="onYPositionTxtChanged"></TextBox>
+                <TextBox Name="w_viewWidth" Margin="0 0 5 0" Height="22" TextChanged="onViewWidthTxtChanged"></TextBox>
                 <TextBox Name="w_renderDepth" Height="22" TextChanged="onRenderTxtChanged">2000</TextBox>
             </UniformGrid>
             <Grid Width="130">

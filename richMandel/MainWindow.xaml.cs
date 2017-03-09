@@ -22,6 +22,7 @@ namespace richMandel
     public partial class MainWindow : Window
     {
         MandelCanvas m_mandelCanavas = new MandelCanvas();
+        bool m_updatingText = false;
 
         public MainWindow()
         {
@@ -30,8 +31,19 @@ namespace richMandel
             m_mandelCanavas.Width = 1400 / 2;
             m_mandelCanavas.Height = 1000 / 2;
             m_mandelCanavas.SuperSample = 1;
+            m_mandelCanavas.ViewChanged += onMandelCanvasViewChanged;
             w_myGrid.Children.Add(m_mandelCanavas);
             Dispatcher.BeginInvoke(new Action(() => m_mandelCanavas.render()), DispatcherPriority.ContextIdle, null);
+            onMandelCanvasViewChanged(m_mandelCanavas.View, m_mandelCanavas.Position);
+        }
+
+        void onMandelCanvasViewChanged(Rect view, Point pos)
+        {
+            m_updatingText = true;
+            w_viewWidth.Text = view.Width.ToString();
+            w_viewXPosition.Text = pos.X.ToString();
+            w_viewYPosition.Text = pos.Y.ToString();
+            m_updatingText = false;
         }
 
         private void onGoButtonClick(object sender, RoutedEventArgs e)
@@ -42,8 +54,29 @@ namespace richMandel
         private void onRenderTxtChanged(object sender, TextChangedEventArgs e)
         {
             int depth = 0;
-            if (int.TryParse(w_renderDepth.Text, out depth))
+            if (!m_updatingText && int.TryParse(w_renderDepth.Text, out depth))
                 m_mandelCanavas.Renderer.Depth = depth;
+        }
+
+        private void onXPositionTxtChanged(object sender, TextChangedEventArgs e)
+        {
+            double x = 0;
+            if (!m_updatingText && double.TryParse(w_viewXPosition.Text, out x))
+                m_mandelCanavas.PositionX = x;
+        }
+
+        private void onYPositionTxtChanged(object sender, TextChangedEventArgs e)
+        {
+            double y = 0;
+            if (!m_updatingText && double.TryParse(w_viewXPosition.Text, out y))
+                m_mandelCanavas.PositionY = y;
+        }
+
+        private void onViewWidthTxtChanged(object sender, TextChangedEventArgs e)
+        {
+            double w = 0;
+            if (!m_updatingText && double.TryParse(w_viewWidth.Text, out w))
+                m_mandelCanavas.ViewWidth = w;
         }
     }
 }
