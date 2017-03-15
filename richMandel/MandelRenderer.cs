@@ -24,7 +24,8 @@ namespace richMandel
         private static Color scol = Colors.Orange;
         private static Color ecol = Colors.RoyalBlue;
 
-        event Action<long> Finished;
+        public event Action<long> Finished;
+        public event Action<double> Progress;
         
         //store values for animated calcualtion
         //MandelPoint[][] m_values = null;
@@ -126,14 +127,26 @@ namespace richMandel
                             m_bitmap.Lock();
                             m_bitmap.AddDirtyRect(new Int32Rect(0, 0, m_pxWidth, m_pxHeight));
                             m_bitmap.Unlock();
-                            if (Finished != null)
-                                Finished.Invoke(-1);
+                            invokeFinished();
                         });
                     }
                     catch (Exception e) { return; }
                 }
                 rendering = false;
             }).Start();
+        }
+
+        private void invokeFinished()
+        {
+            invokeProgress(1);
+            if (Finished != null)
+                Finished.Invoke(-1);
+        }
+
+        private void invokeProgress(double progress)
+        {
+            if (Progress != null)
+                Progress.Invoke(progress);
         }
 
         private void calcPoints()
@@ -163,12 +176,19 @@ namespace richMandel
 
         private int getNextLine()
         {
+            int row = -1;
             lock (m_semaph1)
             {
                 if (m_currentRow >= m_pxHeight)
                     return -1;
-                return m_currentRow++;
+
+                row = m_currentRow++;
             }
+
+            if (row % 36 == 0)
+                invokeProgress((double)row / m_pxHeight);
+            
+            return row;
         }
 
         private void calcPoint(int x, int y)

@@ -17,7 +17,10 @@ namespace richMandel
     {
         private static int MIN_SELECT_SIZE = 5;
 
-        public event Action<double, double, double, double> ViewChanged;
+        /// <summary>
+        /// Is invoked when view Parameter change from within the MandelCanvas (View setters wont invoke this)
+        /// </summary>
+        public event Action<Rect, Point> ViewChanged;
 
         Rectangle m_dragRect = new Rectangle();
         Line m_dragLine = new Line();
@@ -49,7 +52,8 @@ namespace richMandel
             this.MouseDown += onMouseDown;
             this.MouseUp += onMouseUp;
             m_image.MouseWheel += onImageMouseWheel;
-            
+            this.KeyDown += MandelCanvas_KeyDown;
+
 
             m_dragRect.Fill = new SolidColorBrush(Colors.Transparent);
             m_dragRect.Stroke = new SolidColorBrush(Colors.White);
@@ -72,6 +76,27 @@ namespace richMandel
             this.Children.Add(m_image);
             this.Children.Add(m_dragRect);
             this.Children.Add(m_dragLine);
+
+            m_render.Progress += d => Console.WriteLine(Math.Floor(d * 100) +  "%");
+        }
+
+        void MandelCanvas_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Space)
+            {
+                switch (m_dragMode)
+                {                    
+                    case DragModes.Selection:
+                        m_dragMode = DragModes.Move;
+                        break;
+                    case DragModes.Move:
+                        m_dragMode = DragModes.Selection;
+                        break;
+                    default:
+                        break;
+                }
+                Console.WriteLine("changed drag mode to : " + m_dragMode);
+            }
         }
 
         public void render()
@@ -182,6 +207,7 @@ namespace richMandel
             m_view.X = fp.X + m_view.Width / xmpos;
             m_view.Y = fp.Y + m_view.Height / ympos;
             render();
+            invokeViewChanged();
         }
 
         private void initDragIndicator()
@@ -243,6 +269,13 @@ namespace richMandel
 
             m_dragLine.Visibility = Visibility.Collapsed;
             m_dragRect.Visibility = Visibility.Collapsed;
+            invokeViewChanged();
+        }
+
+        private void invokeViewChanged()
+        {
+            if (ViewChanged != null)
+                ViewChanged.Invoke(m_view, this.Position);
         }
 
         private Rect calcSelectionRect()
@@ -258,14 +291,55 @@ namespace richMandel
             double ratio = m_image.ActualWidth / m_image.ActualHeight;
             height = width / ratio;
 
-
-
             return new Rect(x1, y1, width, height);
         }
 
         public MandelRenderer Renderer 
         {
             get { return m_render; }
+        }
+
+        public double PositionX
+        {
+            get { return m_view.X - m_view.Width / 2; }
+            set 
+            {
+                if (value != this.PositionX)
+                    m_view.X = value + m_view.Width / 2;
+            }
+        }
+
+        public double PositionY
+        {
+            get { return m_view.Y - m_view.Height / 2; }
+            set
+            {
+                if (value != this.PositionY)
+                    m_view.Y = value + m_view.Height / 2;
+            }
+        }
+
+        public double ViewWidth
+        {
+            get { return m_view.Width; }
+            set
+            {
+                if (value != null && value != m_view.Width)
+                    m_view.Width = value;
+            }
+        }
+
+        public Point Position
+        {
+            get { return new Point(PositionX, PositionY); }
+            set
+            {
+                if (value != this.Position)
+                {
+                    this.PositionX = value.X;
+                    this.PositionY = value.Y;
+                }
+            }
         }
     }
 }
