@@ -28,8 +28,8 @@ namespace richMandel
         {
             InitializeComponent();
             Grid.SetRow(m_mandelCanavas, 1);
-            m_mandelCanavas.Width = 1400 / 2;
-            m_mandelCanavas.Height = 1000 / 2;
+            //m_mandelCanavas.Width = 1400 / 2;
+            //m_mandelCanavas.Height = 1000 / 2;
             m_mandelCanavas.SuperSample = 1;
             m_mandelCanavas.ViewChanged += onMandelCanvasViewChanged;
             w_myGrid.Children.Add(m_mandelCanavas);

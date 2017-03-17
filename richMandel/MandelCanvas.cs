@@ -23,10 +23,14 @@ namespace richMandel
         public event Action<Rect, Point> ViewChanged;
 
         Rectangle m_dragRect = new Rectangle();
+        Rectangle m_progressBar = new Rectangle();
         Line m_dragLine = new Line();
         Image m_image = new Image();
         WriteableBitmap m_bitmap;
         int m_supersample = 1;
+
+        int m_pxWidth = 600;
+        int m_pxHeight = 400;
 
         //TODO set function
         Rect m_view = new Rect(2, 1, 3, 2);
@@ -37,8 +41,9 @@ namespace richMandel
             Selection,
             Move
         }
+
         DragModes m_dragMode = DragModes.Selection;
-        public DragModes DragMode { get; set; }
+        //public DragModes DragMode { get; set; }
 
         //mouse info
         Point m_dragFrom;
@@ -52,8 +57,10 @@ namespace richMandel
             this.MouseDown += onMouseDown;
             this.MouseUp += onMouseUp;
             m_image.MouseWheel += onImageMouseWheel;
-            this.KeyDown += MandelCanvas_KeyDown;
+            this.KeyDown += onKeyDown;
+            this.SizeChanged += onSizeChanged;
 
+            m_progressBar.Fill = new LinearGradientBrush(Colors.Chartreuse, Colors.Transparent, 90);
 
             m_dragRect.Fill = new SolidColorBrush(Colors.Transparent);
             m_dragRect.Stroke = new SolidColorBrush(Colors.White);
@@ -80,7 +87,14 @@ namespace richMandel
             m_render.Progress += d => Console.WriteLine(Math.Floor(d * 100) +  "%");
         }
 
-        void MandelCanvas_KeyDown(object sender, KeyEventArgs e)
+        void onSizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            Canvas.SetTop(m_image, (this.ActualHeight - m_pxWidth) / 2);
+            Canvas.SetLeft(m_image, (this.ActualWidth - m_pxHeight) / 2);
+        
+        }
+
+        void onKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Space)
             {
@@ -107,8 +121,8 @@ namespace richMandel
 
         private void initBitmap()
         {
-            int pxWidth = (int)this.ActualWidth * m_supersample;
-            int pxHeight = (int)this.ActualHeight * m_supersample;
+            int pxWidth = m_pxWidth * m_supersample;
+            int pxHeight = m_pxHeight * m_supersample;
             m_bitmap = new WriteableBitmap(pxWidth, pxHeight, 96 * SuperSample, 96 * m_supersample, PixelFormats.Bgr24, null);  
             m_image.Source = m_bitmap;
         }
