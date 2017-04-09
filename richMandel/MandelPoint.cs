@@ -19,16 +19,18 @@ namespace richMandel
         /// </summary>
         public int depth = 0;
 
+        public bool notInSet = false;
+
         /// <summary>
         /// creates a mandelPoint between toplet and topleft + botright
         /// </summary>
         /// <param name="topleft">top left corner of view</param>
-        /// <param name="botright">size of view</param>
+        /// <param name="size">size of view</param>
         /// <param name="x">0 - 1 relative x position</param>
         /// <param name="y">0 - 1 relative y position</param>
-        public MandelPoint(Complex topleft, Complex botright, double x, double y)
+        public MandelPoint(Complex topleft, Complex size, double x, double y)
         {
-            c = new Complex(botright.Real * x, botright.Imaginary * y) - topleft;
+            c = new Complex(size.Real * x, size.Imaginary * y) - topleft;
         }
 
         public override string ToString()

@@ -10,15 +10,17 @@
         </Grid.RowDefinitions>
         <DockPanel Name="w_controlPanel" Margin="5" Background="#333" LastChildFill="True">
             <Button Name="w_goButton" DockPanel.Dock="Right" Margin="5px" MinWidth="50" Click="onGoButtonClick">GO</Button>
-            <UniformGrid Rows="2" Margin="5 0 5 0" Width="180">
+            <UniformGrid Rows="2" Margin="5 0 5 0" >
                 <Label Foreground="WhiteSmoke" HorizontalAlignment="Center">X</Label>
                 <Label Foreground="WhiteSmoke" HorizontalAlignment="Center">Y</Label>
                 <Label Foreground="WhiteSmoke" HorizontalAlignment="Center">Width</Label>
                 <Label Foreground="WhiteSmoke" HorizontalAlignment="Center">Depth</Label>
+                <Label Visibility="Hidden"></Label>
                 <TextBox Name="w_viewXPosition" Margin="0 0 5 0" Height="22" TextChanged="onXPositionTxtChanged"></TextBox>
                 <TextBox Name="w_viewYPosition" Margin="0 0 5 0" Height="22" TextChanged="onYPositionTxtChanged"></TextBox>
                 <TextBox Name="w_viewWidth" Margin="0 0 5 0" Height="22" TextChanged="onViewWidthTxtChanged"></TextBox>
-                <TextBox Name="w_renderDepth" Height="22" TextChanged="onRenderTxtChanged">2000</TextBox>
+                <TextBox Name="w_renderDepth" Margin="0 0 5 0" Height="22" TextChanged="onRenderTxtChanged" Text="2000"/>
+                <Button Name="w_renderMore" Height="22" Click="onRenderMoreCLick">+ Depth</Button>
             </UniformGrid>
             <Grid Width="130">
                 <Grid.RowDefinitions>
@@ -41,10 +43,11 @@
                 <TextBox Name="w_threads" Grid.Column="1" Grid.Row="1" Height="22">12</TextBox>
             </Grid>
             <UniformGrid DockPanel.Dock="Right" Rows="2">
-                <Button Name="w_btnSetWindowAsSize" Margin="5px" Height="22">Render Window Size</Button>
+                <Button Name="w_btnSetWindowAsSize" Margin="5px" Height="22" Click="onSetWindowAsSizeClick">Render Window Size</Button>
                 <Button Name="w_renderToImage" Margin="5 0 5 5" Height="22">Render to Image</Button>
             </UniformGrid>
             <Label Foreground="WhiteSmoke" Background="#555" Margin="5">//TODO Gradient Control</Label>
         </DockPanel>
+        <Canvas Grid.Row="1" Background="Red"></Canvas>
     </Grid>
 </Window>

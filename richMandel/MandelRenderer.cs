@@ -9,6 +9,8 @@ using System.Windows;
 using System.Numerics;
 using System.Threading;
 using System.Timers;
+using System.Diagnostics;
+
 
 namespace richMandel
 {
@@ -18,8 +20,6 @@ namespace richMandel
     class MandelRenderer
     {
         //TODO make all of those configurable
-        
-        
         private static int colorPeriod = 70;
         private static Color scol = Colors.Orange;
         private static Color ecol = Colors.RoyalBlue;
@@ -28,14 +28,14 @@ namespace richMandel
         public event Action<double> Progress;
         
         //store values for animated calcualtion
-        //MandelPoint[][] m_values = null;
-        //int m_curDepth;
-        //int m_drawInterval = 50;
+        MandelPoint[,] m_values = null;
+        int m_curDepth;
+        int m_drawInterval = 100; //TODO make configurable
+        int m_fpsMax = 60;        //TODO make configurable
 
-        //dont waste time calculating colors over and over
         List<Color> m_colorLookup = new List<Color>();
 
-        private int m_maxdepth = 1500;
+        private int m_maxDepth = 2000;
         private int m_threadCount = 12;
 
         int m_pxHeight;
@@ -47,28 +47,29 @@ namespace richMandel
         WriteableBitmap m_bitmap;
         int m_bytesPerPixel;
 
-        private int m_currentRow;
+        private int m_curRow;
         bool rendering = false;
 
         IFractalDefinition m_fractDef;
-        Object m_semaph1 = new Object();
-        Object m_semaph2 = new Object();
+        Object m_threadLock = new Object();
+
+        Thread m_renderThread = null;
+
+        Stopwatch m_fpsSw = new Stopwatch();
 
         public MandelRenderer(IFractalDefinition fd)
         {
-            if (rendering)
-                rendering = false;
             m_fractDef = fd;
             initColorLookup();
         }
 
         public int Depth
         {
-            get { return m_maxdepth; }
+            get { return m_maxDepth; }
             set 
             { 
                 if (value >= 0) 
-                    m_maxdepth = value; 
+                    m_maxDepth = value; 
             }
         }
 
@@ -98,42 +99,82 @@ namespace richMandel
             }
         }
 
+        public void startRender()
+        {
+            startRender(m_bitmap, Rect.Empty, false);
+        }
+
         public void startRender(WriteableBitmap bitmap, Rect view)
         {
+            startRender(bitmap, view, true);
+        }
+
+        private void startRender(WriteableBitmap bitmap, Rect view, bool init)
+        {
+            bool joinPrevThread = rendering;
+            rendering = false; //this will stop current render threads
+
+            new Thread(() =>
+            {
+                //wait untill currently readering threads have finished to avoid collisiions
+                if (joinPrevThread && m_renderThread != null)
+                    m_renderThread.Join();
+
+                if (init)
+                    initRender(bitmap, view);
+                
+                m_renderThread = Thread.CurrentThread;
+                rendering = true;
+                calcPoints();   //do actual calulation
+                if (rendering)  //dont do those things when aborting
+                {
+                    drawToBitmap(); 
+                    invokeFinished();
+                }
+
+                rendering = false;
+                m_renderThread = null;
+            }).Start();
+        }
+
+        public void continueRender()
+        {
+            if (!rendering && m_curDepth < m_maxDepth)
+                startRender();
+        }
+
+        private void initRender(WriteableBitmap bitmap, Rect view)
+        {
             m_bitmap = bitmap;
-            m_pxWidth = m_bitmap.PixelWidth;
-            m_pxHeight = m_bitmap.PixelHeight;
-            m_bytesPerPixel = m_bitmap.Format.BitsPerPixel / 8;
-            m_pBackbuffer = m_bitmap.BackBuffer;
+            m_bitmap.Dispatcher.Invoke(new Action(() => 
+            {
+                m_pxWidth = m_bitmap.PixelWidth;
+                m_pxHeight = m_bitmap.PixelHeight;
+                m_bytesPerPixel = m_bitmap.Format.BitsPerPixel / 8;
+                m_pBackbuffer = m_bitmap.BackBuffer;
+            }));
 
             m_topLeft = new Complex(view.Left, view.Top);
             m_size = new Complex(view.Width, view.Height);
 
-            //m_values = new MandelPoint[m_pxWidth][];
-            //for (int i = 0; i < m_pxWidth; i++)
-            //    m_values[i] = new MandelPoint[m_pxHeight];
+            //init point array
+            m_curDepth = 0;
+            m_values = new MandelPoint[m_pxWidth, m_pxHeight];
+            for (int x = 0; x < m_pxWidth; x++)
+                for (int y = 0; y < m_pxHeight; y++)
+                    m_values[x, y] = new MandelPoint(m_topLeft, m_size, x / (double)m_pxWidth, y / (double)m_pxHeight);
+        }
 
-            new Thread(() => 
+        private void drawToBitmap()
+        {
+            Console.WriteLine(m_curDepth);
+            m_bitmap.Dispatcher.BeginInvoke(new Action(() =>
             {
-                rendering = true;
-                calcPoints();
-                if (rendering)
-                {
-                    try
-                    {
-                        m_bitmap.Dispatcher.Invoke(() =>
-                        {
-                            //move changes to frontbuffer
-                            m_bitmap.Lock();
-                            m_bitmap.AddDirtyRect(new Int32Rect(0, 0, m_pxWidth, m_pxHeight));
-                            m_bitmap.Unlock();
-                            invokeFinished();
-                        });
-                    }
-                    catch (Exception e) { return; }
-                }
-                rendering = false;
-            }).Start();
+                //move changes to frontbuffer
+                m_bitmap.Lock();
+                m_bitmap.AddDirtyRect(new Int32Rect(0, 0, m_pxWidth, m_pxHeight));
+                m_bitmap.Unlock();
+            }));
         }
 
         private void invokeFinished()
@@ -151,79 +192,114 @@ namespace richMandel
 
         private void calcPoints()
         {
-            //todo encapsulate in thread and use dispatcher to call back
+            int waitingThreads = 0;
             List<Thread> tlist = new List<Thread>();
-            m_currentRow = 0;
+            m_curRow = 0;
             for (int i = 0; i < m_threadCount; i++)
             {
-                Thread t = new Thread(() =>
+                tlist.Add(new Thread(() =>
                 {
-                    int y = getNextLine();;
-                    while (rendering && y != -1)
+                    while (rendering && m_curDepth <= m_maxDepth)
                     {
-                        for (int x = 0; x < m_pxWidth; x++)
-                            calcPoint(x, y);
-                        y = getNextLine();
+                        //calculate
+                        int y = getNextLine();
+                        while (rendering && y != -1)
+                        {
+                            for (int x = 0; x < m_pxWidth; x++)
+                                calcPoint(x, y);
+
+                            y = getNextLine();
+                        }
+                        
+                        //threading...
+                        lock (m_threadLock)
+                        {
+                            //last thread has to trigger drawing and continues rendering of the next frame
+                            if (waitingThreads == m_threadCount - 1)
+                            {
+                                calcOn();
+                                Monitor.PulseAll(m_threadLock);
+                            }
+                            else
+                            {
+                                waitingThreads++;
+                                Monitor.Wait(m_threadLock);
+                                waitingThreads--;
+                            }
+                        }
                     }
-                });
-                tlist.Add(t);
-                t.Start();
+                }));
             }
 
-            foreach (Thread t in tlist)
-                t.Join();
+            foreach (Thread t in tlist) t.Start();
+            foreach (Thread t in tlist) t.Join();
+
+        }
+
+        private void calcOn()
+        {
+            m_curDepth += m_drawInterval;
+
+            m_curRow = 0;
+            drawToBitmap();
+            invokeProgress((double)m_curDepth / m_maxDepth);
+
+            m_fpsSw.Stop();
+            //limit fps to m_fpsMax
+            if (m_fpsSw.ElapsedMilliseconds < 1000 / m_fpsMax)
+                Thread.Sleep(1000 / m_fpsMax - (int)m_fpsSw.ElapsedMilliseconds); 
+
+            m_fpsSw.Restart();
         }
 
         private int getNextLine()
         {
             int row = -1;
-            lock (m_semaph1)
+            lock (m_threadLock)
             {
-                if (m_currentRow >= m_pxHeight)
+                if (m_curRow >= m_pxHeight)
                     return -1;
 
-                row = m_currentRow++;
+                row = m_curRow++;
             }
 
-            if (row % 36 == 0)
-                invokeProgress((double)row / m_pxHeight);
-            
             return row;
         }
 
         private void calcPoint(int x, int y)
         {
-            
-            //MandelPoint mp = m_values[x][y];
-            var mp = new MandelPoint(m_topLeft, m_size, x / (double)m_pxWidth, y / (double)m_pxHeight);
-            for (int i = 0; i < m_maxdepth; i++)
+            MandelPoint mp = m_values[x, y];
+            if (mp.notInSet)
+                return;
+
+            do
             {
                 m_fractDef.applyFunction(mp);
-
                 if (!m_fractDef.isInSet(mp))
                 {
-                    setPixel(x, y, m_colorLookup[i % colorPeriod]);
+                    setPixel(x, y, m_colorLookup[mp.depth % colorPeriod]);
+                    mp.notInSet = true;
                     return;
                 }
+
+                mp.depth++;
             }
+            while (mp.depth <= m_maxDepth && mp.depth % m_drawInterval != 0 && rendering);
 
             setPixel(x, y, Colors.Black);
         }
 
         private void setPixel(int x, int y, Color c)
         {
-            //lock (m_semaph2)
-            //{
-                unsafe
-                { //fuck yeah pointers
-                    byte* pPixels = (byte*)m_pBackbuffer;
+            unsafe
+            {
+                byte* pPixels = (byte*)m_pBackbuffer;
 
-                    pPixels += (x + y * m_pxWidth) * m_bytesPerPixel;
-                    *pPixels++ = c.B;
-                    *pPixels++ = c.G;
-                    *pPixels = c.R;
-                }
-            //}
+                pPixels += (x + y * m_pxWidth) * m_bytesPerPixel;
+                *pPixels++ = c.B;
+                *pPixels++ = c.G;
+                *pPixels   = c.R;
+            }
         }
     }
 }

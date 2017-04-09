@@ -28,13 +28,27 @@ namespace richMandel
         {
             InitializeComponent();
             Grid.SetRow(m_mandelCanavas, 1);
-            //m_mandelCanavas.Width = 1400 / 2;
-            //m_mandelCanavas.Height = 1000 / 2;
             m_mandelCanavas.SuperSample = 1;
             m_mandelCanavas.ViewChanged += onMandelCanvasViewChanged;
             w_myGrid.Children.Add(m_mandelCanavas);
             Dispatcher.BeginInvoke(new Action(() => m_mandelCanavas.render()), DispatcherPriority.ContextIdle, null);
             onMandelCanvasViewChanged(m_mandelCanavas.View, m_mandelCanavas.Position);
+            this.Closed += onWindowClosed;
+            this.KeyDown += onKeyDown;
+        }
+
+        void onKeyDown(object sender, KeyEventArgs e)
+        {
+            switch (e.Key)
+            {
+                case Key.Space:
+                    m_mandelCanavas.toggleDragMode();
+                    break;
+            }
+        }
+
+        void onWindowClosed(object sender, EventArgs e)
+        {
         }
 
         void onMandelCanvasViewChanged(Rect view, Point pos)
@@ -77,6 +91,19 @@ namespace richMandel
             double w = 0;
             if (!m_updatingText && double.TryParse(w_viewWidth.Text, out w))
                 m_mandelCanavas.ViewWidth = w;
+        }
+
+        private void onSetWindowAsSizeClick(object sender, RoutedEventArgs e)
+        {
+            m_mandelCanavas.setPxSize((int)m_mandelCanavas.ActualWidth, (int)m_mandelCanavas.ActualHeight);
+            m_mandelCanavas.render();
+        }
+
+        private void onRenderMoreCLick(object sender, RoutedEventArgs e)
+        {
+            m_mandelCanavas.Renderer.Depth += 2000;
+            w_renderDepth.Text = m_mandelCanavas.Renderer.Depth.ToString();
+            m_mandelCanavas.continueRender();
         }
     }
 }

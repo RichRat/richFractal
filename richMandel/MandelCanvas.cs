@@ -10,6 +10,7 @@ using System.Windows.Media.Imaging;
 using System.Windows;
 using System.Windows.Shapes;
 using System.Windows.Input;
+using System.Threading;
 
 namespace richMandel
 {
@@ -24,6 +25,7 @@ namespace richMandel
 
         Rectangle m_dragRect = new Rectangle();
         Rectangle m_progressBar = new Rectangle();
+        Action<double> m_updateProgressBar;
         Line m_dragLine = new Line();
         Image m_image = new Image();
         WriteableBitmap m_bitmap;
@@ -31,6 +33,9 @@ namespace richMandel
 
         int m_pxWidth = 600;
         int m_pxHeight = 400;
+
+        double m_imageOffsetX = 0;
+        double m_imageOffsetY = 0;
 
         //TODO set function
         Rect m_view = new Rect(2, 1, 3, 2);
@@ -52,15 +57,28 @@ namespace richMandel
 
         public MandelCanvas()
         {
+            this.Background = new SolidColorBrush(Colors.Black);
+            this.HorizontalAlignment = HorizontalAlignment.Stretch;
+            this.VerticalAlignment = VerticalAlignment.Stretch;
+            this.ClipToBounds = true;
+            this.Width = double.NaN;
+            this.Height = double.NaN;
+
             this.MouseMove += onMouseMove;
             m_render = new MandelRenderer(new MandelDefinition());
             this.MouseDown += onMouseDown;
             this.MouseUp += onMouseUp;
             m_image.MouseWheel += onImageMouseWheel;
-            this.KeyDown += onKeyDown;
             this.SizeChanged += onSizeChanged;
 
-            m_progressBar.Fill = new LinearGradientBrush(Colors.Chartreuse, Colors.Transparent, 90);
+            m_progressBar.Fill = new LinearGradientBrush(Colors.Orange, Colors.Transparent, 90);
+            m_progressBar.Width = 0;
+            m_progressBar.Height = 3;
+            m_updateProgressBar = d =>
+            {
+                m_progressBar.Width = this.ActualWidth * d;
+            };
+
 
             m_dragRect.Fill = new SolidColorBrush(Colors.Transparent);
             m_dragRect.Stroke = new SolidColorBrush(Colors.White);
@@ -78,39 +96,58 @@ namespace richMandel
             m_dragLine.StrokeEndLineCap = PenLineCap.Triangle;
             m_dragLine.Visibility = Visibility.Collapsed;
 
-            this.Background = new SolidColorBrush(Colors.Black);
-
             this.Children.Add(m_image);
+            this.Children.Add(m_progressBar);
             this.Children.Add(m_dragRect);
             this.Children.Add(m_dragLine);
 
             m_render.Progress += d => Console.WriteLine(Math.Floor(d * 100) +  "%");
+            m_render.Progress += onRenderProgress;
+            m_render.Finished += onRenderFinished;
+        }
+
+        void onRenderFinished(long obj)
+        {
+            //TODO do proper animation
+            new Thread(() =>
+            {
+                for (int i = 0; i < 60; i++)
+                {
+                    Thread.Sleep(1000 / 60);
+                    this.Dispatcher.Invoke(() =>
+                    {
+                        double op = 1 - (double)(i + 1) / 60;
+                        m_progressBar.Opacity = op;
+                    });
+                }
+
+                this.Dispatcher.Invoke(() =>
+                {
+                    m_progressBar.Opacity = 1;
+                    m_progressBar.Width = 0;
+                });
+
+            }).Start();
+        }
+
+        
+        void onRenderProgress(double d)
+        {
+            this.Dispatcher.BeginInvoke(m_updateProgressBar, d);
         }
 
         void onSizeChanged(object sender, SizeChangedEventArgs e)
         {
-            Canvas.SetTop(m_image, (this.ActualHeight - m_pxWidth) / 2);
-            Canvas.SetLeft(m_image, (this.ActualWidth - m_pxHeight) / 2);
-        
+            m_imageOffsetX = (this.ActualWidth - m_pxWidth) / 2;
+            m_imageOffsetY = (this.ActualHeight - m_pxHeight) / 2;
+            Canvas.SetLeft(m_image, m_imageOffsetX);
+            Canvas.SetTop(m_image, m_imageOffsetY);
         }
 
-        void onKeyDown(object sender, KeyEventArgs e)
+        public void toggleDragMode()
         {
-            if (e.Key == Key.Space)
-            {
-                switch (m_dragMode)
-                {                    
-                    case DragModes.Selection:
-                        m_dragMode = DragModes.Move;
-                        break;
-                    case DragModes.Move:
-                        m_dragMode = DragModes.Selection;
-                        break;
-                    default:
-                        break;
-                }
-                Console.WriteLine("changed drag mode to : " + m_dragMode);
-            }
+            m_dragMode = m_dragMode == DragModes.Selection ? DragModes.Move : DragModes.Selection;
+            Console.WriteLine("drag mode changed to " + m_dragMode);
         }
 
         public void render()
@@ -173,10 +210,18 @@ namespace richMandel
         {
             if (m_dragging)
             {
-                m_dragging = false;
-                m_mousePos = e.GetPosition(m_image);
-                applyDragToView();
-                render();
+                if (e.ChangedButton == MouseButton.Left)
+                {
+                    m_dragging = false;
+                    m_mousePos = e.GetPosition(m_image);
+                    applyDragToView();
+                    render();
+                }
+                else
+                {
+                    m_dragging = false;
+                    drawDragIndicator();
+                }
             }
         }
 
@@ -229,8 +274,8 @@ namespace richMandel
             if (m_dragMode == DragModes.Move)
             {
                 m_dragLine.Visibility = Visibility.Visible;
-                m_dragLine.X1 = m_dragFrom.X;
-                m_dragLine.Y1 = m_dragFrom.Y;
+                m_dragLine.X1 = m_dragFrom.X + m_imageOffsetX;
+                m_dragLine.Y1 = m_dragFrom.Y + m_imageOffsetY;
             }
             else if (m_dragMode == DragModes.Selection)
             {
@@ -243,16 +288,23 @@ namespace richMandel
 
         private void drawDragIndicator()
         {
+            if (!m_dragging)
+            {       
+                m_dragLine.Visibility = Visibility.Collapsed;
+                m_dragRect.Visibility = Visibility.Collapsed;
+                return;
+            }
+
             if (m_dragMode == DragModes.Move)
             {
-                m_dragLine.X2 = m_mousePos.X;
-                m_dragLine.Y2 = m_mousePos.Y;
+                m_dragLine.X2 = m_imageOffsetX + m_mousePos.X;
+                m_dragLine.Y2 = m_imageOffsetY + m_mousePos.Y;
             }
             else if (m_dragMode == DragModes.Selection)
             {
                 Rect selection = calcSelectionRect();
-                Canvas.SetLeft(m_dragRect, selection.X);
-                Canvas.SetTop(m_dragRect, selection.Y);
+                Canvas.SetLeft(m_dragRect,m_imageOffsetX + selection.X);
+                Canvas.SetTop(m_dragRect, m_imageOffsetY + selection.Y);
                 m_dragRect.Width = selection.Width;
                 m_dragRect.Height = selection.Height;
             }
@@ -265,7 +317,6 @@ namespace richMandel
             Vector delta = to - from;
             if (m_dragMode == DragModes.Move)
             {
-                
                 m_view.X -= delta.X;
                 m_view.Y -= delta.Y;
             }
@@ -281,8 +332,7 @@ namespace richMandel
                 }
             }
 
-            m_dragLine.Visibility = Visibility.Collapsed;
-            m_dragRect.Visibility = Visibility.Collapsed;
+            drawDragIndicator();
             invokeViewChanged();
         }
 
@@ -338,7 +388,7 @@ namespace richMandel
             get { return m_view.Width; }
             set
             {
-                if (value != null && value != m_view.Width)
+                if (value <= 0 && value != m_view.Width)
                     m_view.Width = value;
             }
         }
@@ -354,6 +404,38 @@ namespace richMandel
                     this.PositionY = value.Y;
                 }
             }
+        }
+
+        public void setPxSize(int width, int height)
+        {   
+            m_pxWidth = width;
+            m_pxHeight = height;
+
+            double left = this.ActualWidth - width;
+            double top = this.ActualHeight - height;
+
+            Canvas.SetLeft(m_image, left);
+            Canvas.SetTop(m_image, top);
+            onSizeChanged(null, null);
+
+            //ratio may have changed
+            reCalculateView((double)width / height, m_view.Width);
+        }
+
+        private void reCalculateView(double widthToHeight, double width)
+        {
+            double oldH = m_view.Width;
+            double oldW = m_view.Height;
+            m_view.Width = width;
+            m_view.Height = width / widthToHeight;
+            invokeViewChanged();
+            //m_view.X += m_view.Width - oldW;
+            //m_view.Y += m_view.Height - oldH;
+        }
+
+        public void continueRender()
+        {
+            m_render.continueRender();
         }
     }
 }
