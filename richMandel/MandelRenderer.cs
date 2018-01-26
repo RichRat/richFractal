@@ -13,9 +13,9 @@ using System.Diagnostics;
 
 
 // NOTES
-// * Supersample might have some mouse issues mandelpoint was null!!
-// * scrolling in when calculating sometimes crashes because of non locked bitmap ?!?!?!
-
+//  * Supersample might have some mouse issues mandelpoint was null!!
+//  * scrolling in when calculating sometimes crashes because of non locked bitmap ?!?!?!
+//      * probably when aborting current render
 
 namespace richMandel
 {
@@ -36,7 +36,7 @@ namespace richMandel
         MandelPoint[,] m_values = null;
         int m_curDepth;
         int m_drawInterval = 5; //TODO make configurable
-        int m_fpsMax = 60;        //TODO make configurable
+        int m_fpsMax = 120;        //TODO make configurable
 
         List<Color> m_colorLookup = new List<Color>();
 
@@ -173,7 +173,7 @@ namespace richMandel
 
         private void drawToBitmap()
         {
-            Console.WriteLine(m_curDepth);
+            //Console.WriteLine(m_curDepth);
             m_bitmap.Dispatcher.BeginInvoke(new Action(() =>
             {
                 //move changes to frontbuffer
@@ -256,7 +256,7 @@ namespace richMandel
             m_fpsSw.Stop();
             //limit fps to m_fpsMax
             if (m_fpsSw.ElapsedMilliseconds < 1000 / m_fpsMax)
-                Thread.Sleep(1000 / m_fpsMax - (int)m_fpsSw.ElapsedMilliseconds); 
+                Thread.Sleep(1000 / m_fpsMax - (int)m_fpsSw.ElapsedMilliseconds);
 
             m_fpsSw.Restart();
         }

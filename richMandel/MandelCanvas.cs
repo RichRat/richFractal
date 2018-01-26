@@ -104,7 +104,7 @@ namespace richMandel
             this.Children.Add(m_dragRect);
             this.Children.Add(m_dragLine);
 
-            m_render.Progress += d => Console.WriteLine(Math.Floor(d * 100) +  "%");
+            //m_render.Progress += d => Console.WriteLine(Math.Floor(d * 100) +  "%");
             m_render.Progress += onRenderProgress;
             m_render.Finished += onRenderFinished;
         }
