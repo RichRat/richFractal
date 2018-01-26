@@ -44,6 +44,7 @@
             </Grid>
             <UniformGrid DockPanel.Dock="Right" Rows="2">
                 <Button Name="w_btnSetWindowAsSize" Margin="5px" Height="22" Click="onSetWindowAsSizeClick">Render Window Size</Button>
+                <Button Name="w_mouseModeToggle" Margin="0 5 5 5" Height="22" Click="w_mouseModeToggle_Click">Mouse Mode Toggle</Button>
                 <Button Name="w_renderToImage" Margin="5 0 5 5" Height="22">Render to Image</Button>
             </UniformGrid>
             <Label Foreground="WhiteSmoke" Background="#555" Margin="5">//TODO Gradient Control</Label>

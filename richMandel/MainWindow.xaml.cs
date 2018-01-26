@@ -105,5 +105,10 @@ namespace richMandel
             w_renderDepth.Text = m_mandelCanavas.Renderer.Depth.ToString();
             m_mandelCanavas.continueRender();
         }
+
+        private void w_mouseModeToggle_Click(object sender, RoutedEventArgs e)
+        {
+            m_mandelCanavas.toggleDragMode();
+        }
     }
 }

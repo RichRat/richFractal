@@ -31,8 +31,11 @@ namespace richMandel
         WriteableBitmap m_bitmap;
         int m_supersample = 1;
 
-        int m_pxWidth = 600;
-        int m_pxHeight = 400;
+        //int m_pxWidth = 601;
+        //int m_pxHeight = 400;
+
+        int m_pxWidth = 299;
+        int m_pxHeight = 200;
 
         double m_imageOffsetX = 0;
         double m_imageOffsetY = 0;
@@ -57,7 +60,7 @@ namespace richMandel
 
         public MandelCanvas()
         {
-            this.Background = new SolidColorBrush(Colors.Black);
+            this.Background = new SolidColorBrush(Colors.Gray);
             this.HorizontalAlignment = HorizontalAlignment.Stretch;
             this.VerticalAlignment = VerticalAlignment.Stretch;
             this.ClipToBounds = true;
@@ -158,9 +161,14 @@ namespace richMandel
 
         private void initBitmap()
         {
-            int pxWidth = m_pxWidth * m_supersample;
-            int pxHeight = m_pxHeight * m_supersample;
-            m_bitmap = new WriteableBitmap(pxWidth, pxHeight, 96 * SuperSample, 96 * m_supersample, PixelFormats.Bgr24, null);  
+            m_bitmap = new WriteableBitmap(
+                m_pxWidth * m_supersample,
+                m_pxHeight * m_supersample,
+                96 * m_supersample,
+                96 * m_supersample, 
+                PixelFormats.Bgr24, 
+                null);  
+
             m_image.Source = m_bitmap;
         }
 

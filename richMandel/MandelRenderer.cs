@@ -12,6 +12,11 @@ using System.Timers;
 using System.Diagnostics;
 
 
+// NOTES
+// * Supersample might have some mouse issues mandelpoint was null!!
+// * scrolling in when calculating sometimes crashes because of non locked bitmap ?!?!?!
+
+
 namespace richMandel
 {
     /// <summary>
@@ -30,13 +35,13 @@ namespace richMandel
         //store values for animated calcualtion
         MandelPoint[,] m_values = null;
         int m_curDepth;
-        int m_drawInterval = 100; //TODO make configurable
+        int m_drawInterval = 5; //TODO make configurable
         int m_fpsMax = 60;        //TODO make configurable
 
         List<Color> m_colorLookup = new List<Color>();
 
         private int m_maxDepth = 2000;
-        private int m_threadCount = 12;
+        private int m_threadCount = 1;
 
         int m_pxHeight;
         int m_pxWidth;
@@ -149,6 +154,7 @@ namespace richMandel
             m_bitmap.Dispatcher.Invoke(new Action(() => 
             {
                 m_pxWidth = m_bitmap.PixelWidth;
+                if (m_pxWidth % 2 == 1) m_pxWidth++;
                 m_pxHeight = m_bitmap.PixelHeight;
                 m_bytesPerPixel = m_bitmap.Format.BitsPerPixel / 8;
                 m_pBackbuffer = m_bitmap.BackBuffer;
@@ -171,9 +177,12 @@ namespace richMandel
             m_bitmap.Dispatcher.BeginInvoke(new Action(() =>
             {
                 //move changes to frontbuffer
-                m_bitmap.Lock();
-                m_bitmap.AddDirtyRect(new Int32Rect(0, 0, m_pxWidth, m_pxHeight));
-                m_bitmap.Unlock();
+                lock (this)
+                {
+                    m_bitmap.Lock();
+                    m_bitmap.AddDirtyRect(new Int32Rect(0, 0, m_bitmap.PixelWidth, m_pxHeight));
+                    m_bitmap.Unlock();
+                }
             }));
         }
 
@@ -284,21 +293,22 @@ namespace richMandel
 
                 mp.depth++;
             }
-            while (mp.depth <= m_maxDepth && mp.depth % m_drawInterval != 0 && rendering);
+            while (rendering && mp.depth <= m_maxDepth && mp.depth % m_drawInterval != 0);
 
             setPixel(x, y, Colors.Black);
         }
 
         private void setPixel(int x, int y, Color c)
         {
+            //Console.WriteLine("set pixel:" + x + " " + y);
             unsafe
             {
                 byte* pPixels = (byte*)m_pBackbuffer;
 
                 pPixels += (x + y * m_pxWidth) * m_bytesPerPixel;
-                *pPixels++ = c.B;
-                *pPixels++ = c.G;
-                *pPixels   = c.R;
+                *(pPixels++) = c.B;
+                *(pPixels++) = c.G;
+                *pPixels     = c.R;
             }
         }
     }
